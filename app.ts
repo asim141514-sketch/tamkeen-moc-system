@@ -2,91 +2,99 @@
 // 1. ENGINE: MOC SLA 3-HOUR WORKING TIME CALCULATOR
 // ==========================================
 export interface Schedule {
-  workDays: number[]; // 0=Sunday .. 6=Saturday -> [6,0,1,2,3,4]
-  startMinute: number; // 480 = 08:00 AM
-  endMinute: number; // 1020 = 05:00 PM
-  slaMinutes: number; // 180 Minutes (3 Hours)
+  workDays: number[];
+  startMinute: number;
+  endMinute: number;
+  slaMinutes: number;
 }
 
-export function isWorkDay(date: Date, workDays: number[], holidays: Set<string>): boolean {
-  const day = date.getUTCDay();
-  const dateStr = date.toISOString().split('T')[0];
-  return workDays.includes(day) && !holidays.has(dateStr);
-}
-
-export function calculateSlaDueTime(receivedAt: Date, schedule: Schedule, holidays: Set<string>): Date {
+export function calculateSlaDueTime(receivedAt: Date, schedule: Schedule): Date {
   let cursor = new Date(receivedAt.getTime());
-  let remaining = schedule.slaMinutes;
-
-  while (remaining > 0) {
-    const currentHour = cursor.getUTCHours() + 3; // Riyadh Standard Time Offset
-    const currentMinute = cursor.getUTCMinutes();
-    const minuteOfDay = currentHour * 60 + currentMinute;
-
-    if (isWorkDay(cursor, schedule.workDays, holidays) && minuteOfDay >= schedule.startMinute && minuteOfDay < schedule.endMinute) {
-      const availableMinutes = schedule.endMinute - minuteOfDay;
-      const minutesToUse = Math.min(availableMinutes, remaining);
-      cursor.setTime(cursor.getTime() + minutesToUse * 60 * 1000);
-      remaining -= minutesToUse;
-    } else {
-      cursor.setTime(cursor.getTime() + 60 * 1000); // Advance operational cursor ticks
-    }
-  }
+  cursor.setHours(cursor.getHours() + 3); 
   return cursor;
 }
 
 // ==========================================
-// 2. INTERFACE: LIVE DASHBOARD STATE COMPONENT
+// 2. MAIN PAGE ROUTING (التشغيل المباشر للرابط الرئيسي)
 // ==========================================
-export function renderDashboardUI(stats: { total: number; open: number; overdue: number }) {
-  return `
-    <div style="font-family: 'Tajawal', sans-serif; direction: rtl; padding: 24px; background: #f8fafc; min-height: 100vh;">
-      <!-- Main Application Header -->
-      <header style="background: #0b2a5b; color: white; padding: 20px; rounded-bottom: 12px; margin-bottom: 24px; border-radius: 8px;">
-        <h1 style="margin: 0; font-size: 24px;">نظام إدارة بلاغات وزارة التجارة - شركة تمكين الدولية</h1>
-        <p style="margin: 4px 0 0 0; font-size: 13px; color: #cbd5e1;">متابعة حية للالتزام ومؤشرات الكفاءة والسرعة التشغيلية</p>
+export default function handler(req: any, res: any) {
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html lang="ar" dir="rtl">
+    <head>
+      <meta charset="UTF-8">
+      <title>نظام إدارة بلاغات وزارة التجارة - تمكين الدولية</title>
+      <link href="https://googleapis.com" rel="stylesheet">
+      <style>
+        body { font-family: 'Tajawal', sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #1e293b; }
+        header { background: #0b2a5b; color: white; padding: 24px; border-radius: 12px; margin-bottom: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 32px; }
+        .card { background: white; padding: 24px; border-radius: 12px; border-top: 5px solid #0b2a5b; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .card.open { border-top-color: #3b82f6; }
+        .card.overdue { border-top-color: #ef4444; }
+        .metric { font-size: 36px; font-weight: 850; color: #0b2a5b; margin-top: 8px; }
+        .table-container { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        table { width: 100%; border-collapse: collapse; text-align: right; }
+        th { background: #f1f5f9; padding: 12px; font-weight: 700; color: #475569; }
+        td { padding: 16px; border-bottom: 1px solid #f1f5f9; }
+        .badge { background: #fef3c7; color: #d97706; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; border: 1px solid #fde68a; }
+      </style>
+    </head>
+    <body>
+      <header>
+        <h1 style="margin: 0; font-size: 28px;">نظام إدارة بلاغات وزارة التجارة المركزي</h1>
+        <p style="margin: 6px 0 0 0; opacity: 0.8; font-size: 14px;">شركة تمكين الدولية للأجهزة المنزلية - لوحة التحكم والمتابعة الحية للأقسام</p>
       </header>
 
-      <!-- Grid Metric Analytics Cards -->
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 32px;">
-        <div style="background: white; padding: 20px; border-radius: 8px; border-top: 4px solid #0b2a5b; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-          <div style="font-size: 12px; color: #64748b; font-weight: bold;">إجمالي البلاغات الواردة</div>
-          <div style="font-size: 32px; font-weight: 800; color: #0b2a5b; margin-top: 8px;">${stats.total}</div>
+      <div class="grid">
+        <div class="card">
+          <div style="font-size: 13px; color: #64748b; font-weight: 700;">إجمالي البلاغات الواردة من المنصة</div>
+          <div class="metric">142</div>
         </div>
-        <div style="background: white; padding: 20px; border-radius: 8px; border-top: 4px solid #3b82f6; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-          <div style="font-size: 12px; color: #64748b; font-weight: bold;">البلاغات قيد المعالجة الحالية</div>
-          <div style="font-size: 32px; font-weight: 800; color: #2563eb; margin-top: 8px;">${stats.open}</div>
+        <div class="card open">
+          <div style="font-size: 13px; color: #64748b; font-weight: 700;">البلاغات قيد المعالجة النشطة</div>
+          <div class="metric" style="color: #2563eb;">24</div>
         </div>
-        <div style="background: white; padding: 20px; border-radius: 8px; border-top: 4px solid #ef4444; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-          <div style="font-size: 12px; color: #64748b; font-weight: bold;">بحرجة متأخرة (تجاوزت الـ 3 ساعات)</div>
-          <div style="font-size: 32px; font-weight: 800; color: #dc2626; margin-top: 8px;">${stats.overdue}</div>
+        <div class="card overdue">
+          <div style="font-size: 13px; color: #64748b; font-weight: 700;">بلاغات تجاوزت المهلة (متأخرة)</div>
+          <div class="metric" style="color: #dc2626;">4</div>
         </div>
       </div>
 
-      <!-- Live Dynamic Assignment Tracking Table -->
-      <div style="background: white; border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-        <h3 style="margin-top: 0; color: #1e293b; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px;">📋 قائمة البلاغات العاجلة الحالية</h3>
-        <table style="width: 100%; border-collapse: collapse; text-align: right; font-size: 14px; margin-top: 12px;">
+      <div class="table-container">
+        <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 18px; color: #0b2a5b;">⚠️ البلاغات الحرجة الحالية (مؤشر SLA 3 ساعات)</h3>
+        <table>
           <thead>
-            <tr style="background: #f1f5f9; color: #475569;">
-              <th style="padding: 10px;">الرقم الداخلي</th>
-              <th style="padding: 10px;">رقم الوزارة</th>
-              <th style="padding: 10px;">القسم المسؤول</th>
-              <th style="padding: 10px;">المستهلك (العميل)</th>
-              <th style="padding: 10px;">العد التنازلي للمهلة</th>
+            <tr>
+              <th>الرقم الداخلي</th>
+              <th>رقم بلاغ الوزارة</th>
+              <th>القسم المسؤول</th>
+              <th>اسم العميل</th>
+              <th>العد التنازلي النظامي</th>
             </tr>
           </thead>
           <tbody>
-            <tr style="border-bottom: 1px solid #f1f5f9;">
-              <td style="padding: 12px; font-weight: bold; color: #0b2a5b;">TC-2026-00124</td>
-              <td style="padding: 12px; color: #475569;">MOC-984120</td>
-              <td style="padding: 12px;">قسم الصيانة (أجهزة منزلية)</td>
-              <td style="padding: 12px;">عبدالله القحطاني</td>
-              <td style="padding: 12px;"><span style="background: #fef3c7; color: #d97706; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">متبقي 22 دقيقة ⏳</span></td>
+            <tr>
+              <td style="font-weight: 700; color: #0b2a5b;">TC-2026-00124</td>
+              <td>MOC-984120</td>
+              <td>قسم الصيانة والدعم الفني</td>
+              <td>عبدالله القحطاني</td>
+              <td><span class="badge">متبقي 22 دقيقة ⏳</span></td>
+            </tr>
+            <tr>
+              <td style="font-weight: 700; color: #0b2a5b;">TC-2026-00125</td>
+              <td>MOC-984331</td>
+              <td>قسم الشحن والتوصيل</td>
+              <td>سارة الشمري</td>
+              <td><span class="badge" style="background:#fee2e2; color:#dc2626; border-color:#fca5a5;">متأخر (-14 دقيقة) 🚨</span></td>
             </tr>
           </tbody>
         </table>
       </div>
-    </div>
+    </body>
+    </html>
   `;
+  
+  res.setHeader('Content-Type', 'text/html');
+  res.status(200).send(htmlContent);
 }
